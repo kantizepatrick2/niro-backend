@@ -1,5 +1,5 @@
 const express = require('express');
-const { createClient } = require('@libsql/client');
+const { createClient } = require('@libsql/client');  // Use Turso
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const cors = require('cors');
@@ -7,14 +7,16 @@ require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
-const SECRET_KEY = 'gse_inventory_secret_key_2024';
+const SECRET_KEY = 'niro_gse_secret_key_2024';
 
 const allowedOrigins = [
   'http://localhost:3000',
   'http://localhost:5000',
   'https://gse-frontend.onrender.com',
   'https://casgseinv.onrender.com',
-  'https://gse-backend.onrender.com'
+  'https://gse-backend.onrender.com',
+  'https://nirogse.onrender.com',
+  'https://niro-backend-llo0.onrender.com'
 ];
 
 app.use(cors({
@@ -31,12 +33,13 @@ app.use(cors({
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
+// Connect to NIRO Turso database
 const db = createClient({
   url: process.env.TURSO_DATABASE_URL,
   authToken: process.env.TURSO_AUTH_TOKEN,
 });
 
-console.log('✅ Connected to Turso cloud database');
+console.log('✅ Connected to NIRO Turso cloud database');
 
 // ========== CREATE TABLES ==========
 const createTables = async () => {
@@ -79,8 +82,7 @@ const createTables = async () => {
       reference_number TEXT,
       created_by TEXT,
       notes TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (part_id) REFERENCES parts(id)
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )`);
     
     await db.execute(`CREATE TABLE IF NOT EXISTS pending_issues (
@@ -98,8 +100,7 @@ const createTables = async () => {
       admin_comment TEXT,
       approved_by TEXT,
       approved_at DATETIME,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (part_id) REFERENCES parts(id)
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )`);
     
     await db.execute(`CREATE TABLE IF NOT EXISTS maintenance_checklist (
@@ -107,8 +108,7 @@ const createTables = async () => {
       maintenance_id INTEGER,
       checklist_item TEXT NOT NULL,
       is_checked BOOLEAN DEFAULT 1,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (maintenance_id) REFERENCES gse_maintenance(id)
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )`);
     
     await db.execute(`CREATE TABLE IF NOT EXISTS maintenance_attachments (
@@ -120,8 +120,7 @@ const createTables = async () => {
       file_type TEXT,
       file_size INTEGER,
       uploaded_by TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (maintenance_id) REFERENCES gse_maintenance(id)
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )`);
     
     await db.execute(`CREATE TABLE IF NOT EXISTS gse_maintenance (
@@ -151,7 +150,7 @@ const createTables = async () => {
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )`);
     
-    console.log('✅ Tables ready');
+    console.log('✅ NIRO Tables ready');
   } catch (err) {
     console.error('Table error:', err.message);
   }
@@ -442,6 +441,7 @@ app.post('/api/parts', authenticateToken, async (req, res) => {
   const { part_number, description, manufacturer, compatible_gse, location_bin, min_stock, maintenance_type, service_interval_hours, service_interval_months, service_interval_years, contact_person, contact_phone, contact_email } = req.body;
   try {
     const result = await db.execute({ sql: `INSERT INTO parts (part_number, description, manufacturer, compatible_gse, location_bin, min_stock, quantity_on_hand, maintenance_type, service_interval_hours, service_interval_months, service_interval_years, contact_person, contact_phone, contact_email) VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?)`, args: [part_number, description || '', manufacturer || '', compatible_gse || '', location_bin || '', min_stock || 5, maintenance_type || 'hour', service_interval_hours || 250, service_interval_months || 6, service_interval_years || 1, contact_person || '', contact_phone || '', contact_email || ''] });
+    
     if (maintenance_type !== 'none') {
       const today = new Date().toISOString().split('T')[0];
       if (maintenance_type === 'year') {
@@ -1328,7 +1328,7 @@ const init = async () => {
   await ensureColumns();
   await createUsers();
   await createSampleData();
-  console.log('✅ All data initialized');
+  console.log('✅ All data initialized for NIRO');
   console.log('📎 Base64 file attachment storage enabled');
 };
 
@@ -1336,7 +1336,7 @@ init();
 
 // ========== START SERVER ==========
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(`✅ GSE Server running on port ${PORT}`);
+  console.log(`✅ NIRO GSE Server running on port ${PORT}`);
   console.log(`\n📋 Login with:`);
   console.log(`   admin / admin123 (Admin)`);
   console.log(`   manager / manager123 (Manager)`);
