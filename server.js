@@ -7,7 +7,7 @@ require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
-const SECRET_KEY = 'niro_gse_secret_key_2024'; // Changed for NIRO
+const SECRET_KEY = 'niro_gse_secret_key_2024';
 
 const allowedOrigins = [
   'http://localhost:3000',
@@ -15,8 +15,8 @@ const allowedOrigins = [
   'https://gse-frontend.onrender.com',
   'https://casgseinv.onrender.com',
   'https://gse-backend.onrender.com',
-  'https://nirogse.onrender.com',  // NIRO frontend
-  'https://niro-backend-llo0-usau.onrender.com'  // NIRO backend
+  'https://nirogse.onrender.com',
+  'https://niro-backend-a69e.onrender.com'
 ];
 
 app.use(cors({
@@ -81,8 +81,7 @@ const createTables = async () => {
       reference_number TEXT,
       created_by TEXT,
       notes TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (part_id) REFERENCES parts(id)
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )`);
     
     await db.execute(`CREATE TABLE IF NOT EXISTS pending_issues (
@@ -100,8 +99,7 @@ const createTables = async () => {
       admin_comment TEXT,
       approved_by TEXT,
       approved_at DATETIME,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (part_id) REFERENCES parts(id)
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )`);
     
     await db.execute(`CREATE TABLE IF NOT EXISTS maintenance_checklist (
@@ -109,8 +107,7 @@ const createTables = async () => {
       maintenance_id INTEGER,
       checklist_item TEXT NOT NULL,
       is_checked BOOLEAN DEFAULT 1,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (maintenance_id) REFERENCES gse_maintenance(id)
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )`);
     
     await db.execute(`CREATE TABLE IF NOT EXISTS maintenance_attachments (
@@ -122,8 +119,7 @@ const createTables = async () => {
       file_type TEXT,
       file_size INTEGER,
       uploaded_by TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (maintenance_id) REFERENCES gse_maintenance(id)
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )`);
     
     await db.execute(`CREATE TABLE IF NOT EXISTS gse_maintenance (
@@ -172,7 +168,7 @@ const ensureColumns = async () => {
   }
 };
 
-// ========== CREATE SAMPLE DATA (NIRO Specific) ==========
+// ========== CREATE SAMPLE DATA ==========
 const createSampleData = async () => {
   const sampleParts = [
     ['N001', 'NIRO Brake Pad', 'Bendix', 'Tow Tractor', 'A-01', 50, 10, 'hour', 100, null, null, 'John Smith', '+1 234 567 8900', 'john@bendix.com'],
@@ -1321,6 +1317,29 @@ app.get('/api/debug/users', async (req, res) => {
     res.json({ users: result.rows });
   } catch (err) {
     res.json({ error: err.message });
+  }
+});
+
+// ========== INITIALIZE DATABASE ENDPOINT ==========
+app.get('/api/init', async (req, res) => {
+  try {
+    // Check if admin exists
+    const checkUser = await db.execute('SELECT id FROM users WHERE username = ?', ['admin']);
+    
+    if (checkUser.rows.length === 0) {
+      // Create admin user
+      const hashedPassword = bcrypt.hashSync('admin123', 10);
+      await db.execute(
+        'INSERT INTO users (username, password_hash, role, full_name, email) VALUES (?, ?, ?, ?, ?)',
+        ['admin', hashedPassword, 'admin', 'NIRO System Admin', 'admin@niro.com']
+      );
+      res.json({ success: true, message: '✅ Admin user created! Login with admin/admin123' });
+    } else {
+      res.json({ success: true, message: 'Admin user already exists. Try logging in.' });
+    }
+  } catch (err) {
+    console.error('Init error:', err.message);
+    res.json({ success: false, error: err.message });
   }
 });
 
