@@ -9,20 +9,23 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 const SECRET_KEY = 'niro_gse_secret_key_2024';
 
+// ========== CORS CONFIGURATION - UPDATED FOR CLOUDFLARE ==========
 const allowedOrigins = [
   'http://localhost:3000',
   'http://localhost:5000',
   'https://gse-frontend.onrender.com',
   'https://casgseinv.onrender.com',
   'https://gse-backend.onrender.com',
-  'https://nirogse.onrender.com',
-  'https://niro-backend-a69e.onrender.com'
+  'https://niro-gse.pages.dev',           // Cloudflare Pages frontend
+  'https://nirogse-6tr4.onrender.com',    // Render frontend
+  'https://gse.niro.com'                  // Custom domain (when active)
 ];
 
 app.use(cors({
   origin: function(origin, callback) {
     if (!origin) return callback(null, true);
     if (allowedOrigins.indexOf(origin) === -1) {
+      console.warn(`CORS blocked origin: ${origin}`);
       return callback(new Error('CORS policy does not allow this origin'), false);
     }
     return callback(null, true);
@@ -33,6 +36,7 @@ app.use(cors({
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
+// Connect to NIRO Turso database
 const db = createClient({
   url: process.env.TURSO_DATABASE_URL,
   authToken: process.env.TURSO_AUTH_TOKEN,
@@ -191,7 +195,7 @@ const createSampleData = async () => {
               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         args: part
       });
-      console.log(`✅ Created NIRO sample part: ${part[0]}`);
+      console.log(`✅ Created sample part: ${part[0]}`);
     }
   }
   
@@ -221,7 +225,7 @@ const createSampleData = async () => {
         args: [eq[0], eq[1], eq[2], eq[3] || null, eq[4] || 0, eq[5] || null, eq[6] || null, eq[7] || '', eq[8] || '',
                 eq[9] || null, eq[10] || 0, eq[10] || 0, eq[3] || null, eq[11] || null, eq[12] || null, nextServiceDate]
       });
-      console.log(`✅ Created NIRO sample GSE: ${eq[0]}`);
+      console.log(`✅ Created sample GSE: ${eq[0]}`);
     }
   }
 };
@@ -242,7 +246,7 @@ const createUsers = async () => {
         sql: 'INSERT INTO users (username, password_hash, full_name, role, email) VALUES (?, ?, ?, ?, ?)', 
         args: [user.username, hashedPassword, user.full_name, user.role, user.email] 
       });
-      console.log(`✅ Created NIRO user: ${user.username}`);
+      console.log(`✅ Created user: ${user.username}`);
     }
   }
 };
@@ -443,16 +447,16 @@ app.post('/api/parts', authenticateToken, async (req, res) => {
     if (maintenance_type !== 'none') {
       const today = new Date().toISOString().split('T')[0];
       if (maintenance_type === 'year') {
-        await db.execute({ sql: `INSERT INTO gse_maintenance (equipment_name, equipment_type, maintenance_type, part_id, last_service_full_date, service_interval_years, status, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, 'serviced', ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`, args: [part_number, manufacturer || 'NIRO GSE Part', maintenance_type || 'year', result.lastInsertRowid, today, service_interval_years || 1, req.user.username] });
+        await db.execute({ sql: `INSERT INTO gse_maintenance (equipment_name, equipment_type, maintenance_type, part_id, last_service_full_date, service_interval_years, status, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, 'serviced', ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`, args: [part_number, manufacturer || 'GSE Part', maintenance_type || 'year', result.lastInsertRowid, today, service_interval_years || 1, req.user.username] });
       } else if (maintenance_type === 'month') {
-        await db.execute({ sql: `INSERT INTO gse_maintenance (equipment_name, equipment_type, maintenance_type, part_id, last_service_date, service_interval_months, status, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, 'serviced', ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`, args: [part_number, manufacturer || 'NIRO GSE Part', maintenance_type || 'month', result.lastInsertRowid, today, service_interval_months || 6, req.user.username] });
+        await db.execute({ sql: `INSERT INTO gse_maintenance (equipment_name, equipment_type, maintenance_type, part_id, last_service_date, service_interval_months, status, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, 'serviced', ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`, args: [part_number, manufacturer || 'GSE Part', maintenance_type || 'month', result.lastInsertRowid, today, service_interval_months || 6, req.user.username] });
       } else {
-        await db.execute({ sql: `INSERT INTO gse_maintenance (equipment_name, equipment_type, maintenance_type, part_id, last_service_date, last_service_hours, service_interval_hours, current_hours, target_hours, status, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, 0, ?, 0, ?, 'serviced', ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`, args: [part_number, manufacturer || 'NIRO GSE Part', maintenance_type || 'hour', result.lastInsertRowid, today, service_interval_hours || 250, service_interval_hours || 250, req.user.username] });
+        await db.execute({ sql: `INSERT INTO gse_maintenance (equipment_name, equipment_type, maintenance_type, part_id, last_service_date, last_service_hours, service_interval_hours, current_hours, target_hours, status, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, 0, ?, 0, ?, 'serviced', ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`, args: [part_number, manufacturer || 'GSE Part', maintenance_type || 'hour', result.lastInsertRowid, today, service_interval_hours || 250, service_interval_hours || 250, req.user.username] });
       }
     } else {
-      await db.execute({ sql: `INSERT INTO gse_maintenance (equipment_name, equipment_type, maintenance_type, part_id, status, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, 'no_maintenance', ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`, args: [part_number, manufacturer || 'NIRO GSE Part', 'none', result.lastInsertRowid, req.user.username] });
+      await db.execute({ sql: `INSERT INTO gse_maintenance (equipment_name, equipment_type, maintenance_type, part_id, status, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, 'no_maintenance', ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`, args: [part_number, manufacturer || 'GSE Part', 'none', result.lastInsertRowid, req.user.username] });
     }
-    res.json({ message: 'Part added successfully to NIRO inventory!' });
+    res.json({ message: 'Part added successfully!' });
   } catch (err) {
     console.error('Create part error:', err.message);
     res.status(500).json({ error: err.message });
@@ -471,7 +475,7 @@ app.post('/api/transactions/receive', authenticateToken, async (req, res) => {
     const newQuantity = part.quantity_on_hand + receiveQty;
     await db.execute({ sql: `INSERT INTO transactions (part_id, transaction_type, quantity, reference_number, notes, created_by, created_at) VALUES (?, 'RECEIVE', ?, ?, ?, ?, CURRENT_TIMESTAMP)`, args: [part.id, receiveQty, reference_number || '', notes || '', req.user.username] });
     await db.execute({ sql: 'UPDATE parts SET quantity_on_hand = ? WHERE id = ?', args: [newQuantity, part.id] });
-    res.json({ success: true, message: 'Parts received successfully to NIRO inventory', new_stock: newQuantity });
+    res.json({ success: true, message: 'Parts received successfully', new_stock: newQuantity });
   } catch (err) {
     console.error('Receive error:', err.message);
     res.status(500).json({ error: err.message });
@@ -1317,29 +1321,6 @@ app.get('/api/debug/users', async (req, res) => {
     res.json({ users: result.rows });
   } catch (err) {
     res.json({ error: err.message });
-  }
-});
-
-// ========== INITIALIZE DATABASE ENDPOINT ==========
-app.get('/api/init', async (req, res) => {
-  try {
-    // Check if admin exists
-    const checkUser = await db.execute('SELECT id FROM users WHERE username = ?', ['admin']);
-    
-    if (checkUser.rows.length === 0) {
-      // Create admin user
-      const hashedPassword = bcrypt.hashSync('admin123', 10);
-      await db.execute(
-        'INSERT INTO users (username, password_hash, role, full_name, email) VALUES (?, ?, ?, ?, ?)',
-        ['admin', hashedPassword, 'admin', 'NIRO System Admin', 'admin@niro.com']
-      );
-      res.json({ success: true, message: '✅ Admin user created! Login with admin/admin123' });
-    } else {
-      res.json({ success: true, message: 'Admin user already exists. Try logging in.' });
-    }
-  } catch (err) {
-    console.error('Init error:', err.message);
-    res.json({ success: false, error: err.message });
   }
 });
 
